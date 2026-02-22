@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGNAL DECRYPT // Caesar Cipher K=3</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  :root {
+    --phosphor: #00ff41;
+    --phosphor-dim: #00cc33;
+    --phosphor-glow: rgba(0,255,65,0.15);
+    --amber: #ffb000;
+    --amber-dim: #cc8d00;
+    --red: #ff3333;
+    --cyan: #00e5ff;
+    --bg-deep: #020a02;
+    --bg-panel: #0a150a;
+    --bg-card: #0d1f0d;
+    --border: #1a3a1a;
+    --text-dim: #4a7a4a;
+    --success: #00ff41;
+    --fail: #ff3333;
+  }
+
+  html { font-size: 16px; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--phosphor);
+    font-family: 'Rajdhani', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* ── CRT Scanlines Overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Circuit Board Background Pattern ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    opacity: 0.04;
+    background-image:
+      linear-gradient(var(--phosphor) 1px, transparent 1px),
+      linear-gradient(90deg, var(--phosphor) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Floating Circuit Nodes ── */
+  .circuit-nodes {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .circuit-node {
+    position: absolute;
+    width: 4px; height: 4px;
+    background: var(--phosphor);
+    border-radius: 50%;
+    opacity: 0;
+    animation: nodeFloat 8s infinite;
+  }
+  @keyframes nodeFloat {
+    0%,100% { opacity: 0; transform: scale(0.5); }
+    50% { opacity: 0.3; transform: scale(1.5); }
+  }
+
+  /* ── Main Container ── */
+  .app-wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 20px 60px;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 30px;
+    position: relative;
+  }
+  .header-badge {
+    display: inline-block;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--amber);
+    background: rgba(255,176,0,0.08);
+    border: 1px solid rgba(255,176,0,0.2);
+    padding: 4px 18px;
+    margin-bottom: 14px;
+  }
+  .header h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    letter-spacing: 4px;
+    color: var(--phosphor);
+    text-shadow: 0 0 30px var(--phosphor-glow), 0 0 60px rgba(0,255,65,0.08);
+    line-height: 1.1;
+  }
+  .header h1 .slash {
+    color: var(--amber);
+    margin: 0 4px;
+  }
+  .header-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+
+  /* ── Stats Bar ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-cell {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 12px 10px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-cell::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--phosphor);
+    opacity: 0.4;
+  }
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+  }
+  .stat-value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--phosphor);
+  }
+  .stat-value.amber { color: var(--amber); }
+  .stat-value.cyan { color: var(--cyan); }
+
+  /* ── Mode Toggle ── */
+  .mode-toggle {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .mode-btn {
+    flex: 1;
+    background: var(--bg-panel);
+    color: var(--text-dim);
+    border: none;
+    padding: 12px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+  .mode-btn:not(:last-child) { border-right: 1px solid var(--border); }
+  .mode-btn.active {
+    background: rgba(0,255,65,0.08);
+    color: var(--phosphor);
+  }
+  .mode-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--phosphor);
+  }
+  .mode-btn:hover:not(.active) {
+    background: rgba(0,255,65,0.03);
+    color: var(--phosphor-dim);
+  }
+
+  /* ── Difficulty Indicator ── */
+  .difficulty-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 10px 16px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+  }
+  .difficulty-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+  .difficulty-dots {
+    display: flex;
+    gap: 6px;
+  }
+  .diff-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: all 0.3s;
+  }
+  .diff-dot.active { background: var(--phosphor); box-shadow: 0 0 8px var(--phosphor-glow); }
+  .diff-dot.active.amber { background: var(--amber); box-shadow: 0 0 8px rgba(255,176,0,0.3); }
+  .diff-dot.active.red { background: var(--red); box-shadow: 0 0 8px rgba(255,51,51,0.3); }
+
+  /* ── Cipher Display Card ── */
+  .cipher-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 0;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cipher-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    background: rgba(0,255,65,0.04);
+    border-bottom: 1px solid var(--border);
+  }
+  .cipher-card-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--amber);
+  }
+  .cipher-card-id {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+  .cipher-card-body {
+    padding: 30px 24px 34px;
+    text-align: center;
+  }
+  .cipher-text-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(1.2rem, 3.5vw, 1.9rem);
+    color: var(--amber);
+    letter-spacing: 3px;
+    word-break: break-word;
+    text-shadow: 0 0 20px rgba(255,176,0,0.2);
+    line-height: 1.5;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cipher-text-display .char {
+    display: inline-block;
+    animation: charReveal 0.3s ease-out both;
+  }
+  @keyframes charReveal {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Signal Wave Decoration ── */
+  .signal-wave {
+    height: 30px;
+    margin: 0 24px 10px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0.2;
+  }
+  .signal-wave svg { width: 100%; height: 100%; }
+  .wave-path {
+    stroke: var(--phosphor);
+    stroke-width: 1.5;
+    fill: none;
+    stroke-dasharray: 800;
+    stroke-dashoffset: 800;
+    animation: drawWave 2s ease-out forwards;
+  }
+  @keyframes drawWave { to { stroke-dashoffset: 0; } }
+
+  /* ── Input Area ── */
+  .input-area {
+    margin-bottom: 20px;
+  }
+  .input-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .input-label .cursor-blink {
+    display: inline-block;
+    width: 6px; height: 12px;
+    background: var(--phosphor);
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .text-input {
+    width: 100%;
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    color: var(--phosphor);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    padding: 16px 20px;
+    outline: none;
+    letter-spacing: 2px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    caret-color: var(--phosphor);
+  }
+  .text-input::placeholder {
+    color: var(--text-dim);
+    opacity: 0.5;
+  }
+  .text-input:focus {
+    border-color: var(--phosphor-dim);
+    box-shadow: 0 0 15px var(--phosphor-glow), inset 0 0 15px rgba(0,255,65,0.03);
+  }
+  .text-input.correct {
+    border-color: var(--success);
+    box-shadow: 0 0 20px rgba(0,255,65,0.2);
+  }
+  .text-input.wrong {
+    border-color: var(--fail);
+    box-shadow: 0 0 20px rgba(255,51,51,0.15);
+    animation: inputShake 0.4s ease;
+  }
+  @keyframes inputShake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-4px); }
+    80% { transform: translateX(4px); }
+  }
+
+  /* ── Hint Bar ── */
+  .hint-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+    min-height: 40px;
+  }
+  .hint-text {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  .hint-text span { color: var(--cyan); }
+
+  /* ── Action Buttons ── */
+  .action-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .btn {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 14px 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn:hover {
+    color: var(--phosphor);
+    border-color: var(--phosphor-dim);
+    background: rgba(0,255,65,0.05);
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    color: var(--bg-deep);
+    background: var(--phosphor);
+    border-color: var(--phosphor);
+  }
+  .btn-primary:hover {
+    background: var(--phosphor-dim);
+    color: var(--bg-deep);
+    box-shadow: 0 0 25px var(--phosphor-glow);
+  }
+
+  .btn-amber { border-color: rgba(255,176,0,0.3); }
+  .btn-amber:hover {
+    color: var(--amber);
+    border-color: var(--amber-dim);
+    background: rgba(255,176,0,0.06);
+  }
+
+  .btn-cyan { border-color: rgba(0,229,255,0.2); }
+  .btn-cyan:hover {
+    color: var(--cyan);
+    border-color: var(--cyan);
+    background: rgba(0,229,255,0.05);
+  }
+
+  /* ── Feedback Message ── */
+  .feedback {
+    text-align: center;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feedback.show { opacity: 1; }
+  .feedback.success { color: var(--success); }
+  .feedback.error { color: var(--fail); }
+
+  /* ── Reference Table Toggle ── */
+  .ref-toggle {
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .ref-toggle-btn {
+    background: none;
+    border: 1px dashed var(--border);
+    color: var(--text-dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .ref-toggle-btn:hover {
+    border-color: var(--phosphor-dim);
+    color: var(--phosphor-dim);
+  }
+
+  .ref-table-wrap {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.5s ease;
+    margin-bottom: 20px;
+  }
+  .ref-table-wrap.open { max-height: 500px; overflow-y: auto; }
+
+  .ref-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+  }
+  .ref-table th {
+    background: rgba(0,255,65,0.06);
+    color: var(--phosphor);
+    padding: 8px 12px;
+    text-align: center;
+    font-weight: 400;
+    letter-spacing: 2px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+  }
+  .ref-table td {
+    padding: 6px 12px;
+    text-align: center;
+    border-bottom: 1px solid rgba(26,58,26,0.4);
+    color: var(--text-dim);
+  }
+  .ref-table tr:hover td { color: var(--phosphor); background: rgba(0,255,65,0.02); }
+
+  /* ── Success Overlay ── */
+  .success-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    display: none;
+    pointer-events: none;
+  }
+  .success-overlay.active { display: block; }
+
+  /* Particle burst */
+  .particle {
+    position: absolute;
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* Matrix Rain */
+  .matrix-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 9997;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+  .matrix-canvas.active { opacity: 1; }
+
+  /* ── Signal Burst Ring ── */
+  .signal-burst {
+    position: fixed;
+    top: 50%; left: 50%;
+    width: 0; height: 0;
+    border-radius: 50%;
+    border: 2px solid var(--phosphor);
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 9996;
+  }
+  .signal-burst.active {
+    animation: burstRing 0.8s ease-out forwards;
+  }
+  @keyframes burstRing {
+    0% { width: 0; height: 0; opacity: 0.8; border-width: 3px; }
+    100% { width: 600px; height: 600px; opacity: 0; border-width: 1px; }
+  }
+
+  /* ── Streak Fire ── */
+  .streak-badge {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--amber);
+    letter-spacing: 1px;
+  }
+  .streak-badge.show { display: flex; }
+  .streak-fire { animation: fireFlicker 0.5s infinite alternate; }
+  @keyframes fireFlicker {
+    from { text-shadow: 0 0 4px rgba(255,176,0,0.5); }
+    to { text-shadow: 0 0 10px rgba(255,100,0,0.8); }
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 30px;
+  }
+  .footer p {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .action-row { grid-template-columns: 1fr; }
+    .cipher-card-body { padding: 20px 16px; }
+  }
+
+  /* ── Scroll Bar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--phosphor-dim); }
+
+  /* ── Wrong flash overlay ── */
+  .wrong-flash {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,0,0,0.06);
+    pointer-events: none;
+    z-index: 9990;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .wrong-flash.active { opacity: 1; }
+
+  /* ── Confetti for big streaks ── */
+  .confetti-piece {
+    position: fixed;
+    width: 8px; height: 8px;
+    z-index: 9998;
+    pointer-events: none;
+    opacity: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="circuit-nodes" id="circuitNodes"></div>
+<canvas class="matrix-canvas" id="matrixCanvas"></canvas>
+<div class="success-overlay" id="successOverlay"></div>
+<div class="signal-burst" id="signalBurst"></div>
+<div class="wrong-flash" id="wrongFlash"></div>
+
+<div class="app-wrapper">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-badge">⟨ Electronics &amp; Communication ⟩</div>
+    <h1>SIGNAL<span class="slash">//</span>DECRYPT</h1>
+    <p class="header-sub">CAESAR CIPHER DECODER &mdash; SHIFT KEY K=3</p>
+  </header>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-cell">
+      <div class="stat-label">Score</div>
+      <div class="stat-value" id="scoreVal">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Streak</div>
+      <div class="stat-value amber" id="streakVal">0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Solved</div>
+      <div class="stat-value cyan" id="solvedVal">0/0</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-label">Best Streak</div>
+      <div class="stat-value" id="bestStreakVal">0</div>
+    </div>
+  </div>
+
+  <!-- MODE TOGGLE -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" data-mode="words" id="modeWords">◇ Words</button>
+    <button class="mode-btn" data-mode="sentences" id="modeSentences">◆ Sentences</button>
+    <button class="mode-btn" data-mode="all" id="modeAll">◈ All Mixed</button>
+  </div>
+
+  <!-- DIFFICULTY -->
+  <div class="difficulty-row">
+    <span class="difficulty-label" id="diffLabel">Difficulty: Word Mode</span>
+    <div class="difficulty-dots">
+      <div class="diff-dot active" id="dd1"></div>
+      <div class="diff-dot" id="dd2"></div>
+      <div class="diff-dot" id="dd3"></div>
+    </div>
+    <div class="streak-badge" id="streakBadge">
+      <span class="streak-fire">🔥</span>
+      <span id="streakBadgeNum">0</span> STREAK
+    </div>
+  </div>
+
+  <!-- CIPHER DISPLAY -->
+  <div class="cipher-card">
+    <div class="cipher-card-header">
+      <span class="cipher-card-tag">▸ Intercepted Signal</span>
+      <span class="cipher-card-id" id="questionId">#001</span>
+    </div>
+    <div class="signal-wave">
+      <svg viewBox="0 0 800 30" preserveAspectRatio="none">
+        <path class="wave-path" id="wavePath" d="M0,15 Q50,0 100,15 Q150,30 200,15 Q250,0 300,15 Q350,30 400,15 Q450,0 500,15 Q550,30 600,15 Q650,0 700,15 Q750,30 800,15"/>
+      </svg>
+    </div>
+    <div class="cipher-card-body">
+      <div class="cipher-text-display" id="cipherDisplay">Loading...</div>
+    </div>
+  </div>
+
+  <!-- INPUT -->
+  <div class="input-area">
+    <div class="input-label"><span class="cursor-blink"></span> Enter Decrypted Plaintext</div>
+    <input type="text" class="text-input" id="answerInput" placeholder="Type your decoded message here..." autocomplete="off" spellcheck="false">
+  </div>
+
+  <!-- HINT BAR -->
+  <div class="hint-bar">
+    <span class="hint-text" id="hintText">Press HINT to reveal first letter</span>
+    <span class="hint-text">Shift: <span>K = 3</span></span>
+  </div>
+
+  <!-- FEEDBACK -->
+  <div class="feedback" id="feedback"></div>
+
+  <!-- BUTTONS -->
+  <div class="action-row">
+    <button class="btn btn-primary" id="verifyBtn">▶ Verify</button>
+    <button class="btn btn-amber" id="nextBtn">⟳ Next Signal</button>
+    <button class="btn btn-cyan" id="hintBtn">? Hint</button>
+  </div>
+  <div class="action-row">
+    <button class="btn" id="skipBtn">⏭ Skip</button>
+    <button class="btn" id="revealBtn">👁 Reveal</button>
+    <button class="btn" id="resetBtn">⟲ Reset Score</button>
+  </div>
+
+  <!-- REFERENCE TABLE -->
+  <div class="ref-toggle">
+    <button class="ref-toggle-btn" id="refToggleBtn">▾ Caesar Cipher Reference Table (K=3)</button>
+  </div>
+  <div class="ref-table-wrap" id="refTableWrap">
+    <table class="ref-table">
+      <thead>
+        <tr><th>Plain</th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th><th>G</th><th>H</th><th>I</th><th>J</th><th>K</th><th>L</th><th>M</th><th>N</th><th>O</th><th>P</th><th>Q</th><th>R</th><th>S</th><th>T</th><th>U</th><th>V</th><th>W</th><th>X</th><th>Y</th><th>Z</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Cipher</th><td>D</td><td>E</td><td>F</td><td>G</td><td>H</td><td>I</td><td>J</td><td>K</td><td>L</td><td>M</td><td>N</td><td>O</td><td>P</td><td>Q</td><td>R</td><td>S</td><td>T</td><td>U</td><td>V</td><td>W</td><td>X</td><td>Y</td><td>Z</td><td>A</td><td>B</td><td>C</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <p>SIGNAL//DECRYPT &mdash; Caesar Cipher Training System &mdash; Electronics &amp; Communication Dept.</p>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  DATA — All problems hardcoded from both Excel files
+// ═══════════════════════════════════════════════════════
+const WORDS = [
+  {cipher:"Nduqdn",plain:"Karnak"},
+  {cipher:"Vhfuhw",plain:"Secret"},
+  {cipher:"Kdfnhu",plain:"Hacker"},
+  {cipher:"Frgh",plain:"Code"},
+  {cipher:"Orfn",plain:"Lock"},
+  {cipher:"Nhb",plain:"Key"},
+  {cipher:"Vdih",plain:"Safe"},
+  {cipher:"Jxdug",plain:"Guard"},
+  {cipher:"Dodup",plain:"Alarm"},
+  {cipher:"Dohuw",plain:"Alert"},
+  {cipher:"Vsb",plain:"Spy"},
+  {cipher:"Djhqw",plain:"Agent"},
+  {cipher:"Vljqdo",plain:"Signal"},
+  {cipher:"Phvvdjh",plain:"Message"},
+  {cipher:"Klgghq",plain:"Hidden"},
+  {cipher:"Pdvn",plain:"Mask"},
+  {cipher:"Wuds",plain:"Trap"},
+  {cipher:"Vklhog",plain:"Shield"},
+  {cipher:"Vzrug",plain:"Sword"},
+  {cipher:"Pds",plain:"Map"},
+  {cipher:"Qrwh",plain:"Note"},
+  {cipher:"Iloh",plain:"File"},
+  {cipher:"Gdwd",plain:"Data"},
+  {cipher:"Ebwh",plain:"Byte"},
+  {cipher:"Elw",plain:"Bit"},
+  {cipher:"Fkls",plain:"Chip"},
+  {cipher:"Prxvh",plain:"Mouse"},
+  {cipher:"Vfuhhq",plain:"Screen"},
+  {cipher:"Skrqh",plain:"Phone"},
+  {cipher:"Hpdlo",plain:"Email"},
+  {cipher:"Orjlq",plain:"Login"},
+  {cipher:"Xvhu",plain:"User"},
+  {cipher:"Dgplq",plain:"Admin"},
+  {cipher:"Forxg",plain:"Cloud"},
+  {cipher:"Vhuyhu",plain:"Server"},
+  {cipher:"Urerw",plain:"Robot"},
+  {cipher:"Odvhu",plain:"Laser"},
+  {cipher:"Gurqh",plain:"Drone"},
+  {cipher:"Udgdu",plain:"Radar"},
+  {cipher:"Vhqvru",plain:"Sensor"},
+  {cipher:"Zluh",plain:"Wire"},
+  {cipher:"Vzlwfk",plain:"Switch"},
+  {cipher:"Srzhu",plain:"Power"},
+  {cipher:"Oljkw",plain:"Light"},
+  {cipher:"Vrxqg",plain:"Sound"},
+  {cipher:"Zdyh",plain:"Wave"},
+  {cipher:"Sxovh",plain:"Pulse"},
+  {cipher:"Iodvk",plain:"Flash"},
+  {cipher:"Forfn",plain:"Clock"},
+  {cipher:"Wlphu",plain:"Timer"},
+  {cipher:"Jdwh",plain:"Gate"},
+  {cipher:"Grru",plain:"Door"},
+  {cipher:"Zdoo",plain:"Wall"},
+  {cipher:"Urrp",plain:"Room"},
+  {cipher:"Ydxow",plain:"Vault"},
+  {cipher:"Era",plain:"Box"},
+  {cipher:"Fdvh",plain:"Case"},
+  {cipher:"Wdj",plain:"Tag"},
+  {cipher:"Pdun",plain:"Mark"},
+  {cipher:"Vljq",plain:"Sign"},
+  {cipher:"Olqn",plain:"Link"},
+  {cipher:"Sdwk",plain:"Path"},
+  {cipher:"Urxwh",plain:"Route"},
+  {cipher:"Wudfn",plain:"Track"},
+  {cipher:"Vshhg",plain:"Speed"},
+  {cipher:"Gulyh",plain:"Drive"},
+  {cipher:"Eudnh",plain:"Brake"},
+  {cipher:"Vwduw",plain:"Start"},
+  {cipher:"Dssoh",plain:"Apple"},
+  {cipher:"Urfnhw",plain:"Rocket"},
+  {cipher:"Vkdgrz",plain:"Shadow"},
+  {cipher:"Pdueoh",plain:"Marble"},
+  {cipher:"Wljhu",plain:"Tiger"},
+  {cipher:"Txdqwxp",plain:"Quantum"},
+  {cipher:"Ulyhu",plain:"River"},
+  {cipher:"Jdodab",plain:"Galaxy"},
+  {cipher:"Odqwhuq",plain:"Lantern"},
+  {cipher:"Sxccoh",plain:"Puzzle"},
+  {cipher:"Idofrq",plain:"Falcon"},
+  {cipher:"Yhoyhw",plain:"Velvet"},
+  {cipher:"Wkxqghu",plain:"Thunder"},
+  {cipher:"Fubvwdo",plain:"Crystal"},
+  {cipher:"Ruelw",plain:"Orbit"},
+  {cipher:"Zklvshu",plain:"Whisper"},
+  {cipher:"Pdwula",plain:"Matrix"},
+  {cipher:"Skrhqla",plain:"Phoenix"},
+  {cipher:"Jodflhu",plain:"Glacier"},
+  {cipher:"Qlpexv",plain:"Nimbus"},
+  {cipher:"Flskhu",plain:"Cipher"},
+  {cipher:"Fdqbrq",plain:"Canyon"},
+  {cipher:"Hphudog",plain:"Emerald"},
+  {cipher:"Udgdu",plain:"Radar"},
+  {cipher:"Yrofdqr",plain:"Volcano"},
+  {cipher:"Vdsskluh",plain:"Sapphire"},
+  {cipher:"Dqfkru",plain:"Anchor"},
+  {cipher:"Eolccdug",plain:"Blizzard"},
+  {cipher:"Flufxlw",plain:"Circuit"},
+  {cipher:"Gudjrq",plain:"Dragon"},
+  {cipher:"Hfolsvh",plain:"Eclipse"},
+  {cipher:"Iruhvw",plain:"Forest"},
+  {cipher:"Judylwb",plain:"Gravity"},
+  {cipher:"Krulcrq",plain:"Horizon"},
+  {cipher:"Lvodqg",plain:"Island"},
+  {cipher:"Mxqjoh",plain:"Jungle"},
+  {cipher:"Nhuqho",plain:"Kernel"},
+  {cipher:"Ohjhqg",plain:"Legend"},
+  {cipher:"Pdjqhw",plain:"Magnet"},
+  {cipher:"Qhswxqh",plain:"Neptune"},
+  {cipher:"Rfhdq",plain:"Ocean"},
+  {cipher:"Sulvp",plain:"Prism"},
+  {cipher:"Txduwc",plain:"Quartz"},
+  {cipher:"Uhdfwru",plain:"Reactor"},
+  {cipher:"Vljqdo",plain:"Signal"},
+  {cipher:"Whpsoh",plain:"Temple"},
+  {cipher:"Xqlwb",plain:"Unity"},
+  {cipher:"Yhfwru",plain:"Vector"},
+  {cipher:"Zduulru",plain:"Warrior"},
+  {cipher:"Aborskrqh",plain:"Xylophone"},
+  {cipher:"Bdfkw",plain:"Yacht"},
+  {cipher:"Chqlwk",plain:"Zenith"},
+  {cipher:"Euhhch",plain:"Breeze"},
+  {cipher:"Frphw",plain:"Comet"},
+  {cipher:"Gbqdpr",plain:"Dynamo"},
+  {cipher:"Hqjlqh",plain:"Engine"},
+  {cipher:"Iodph",plain:"Flame"},
+  {cipher:"Jdvnhw",plain:"Gasket"},
+  {cipher:"Kdueru",plain:"Harbor"},
+  {cipher:"Ljqlwh",plain:"Ignite"},
+  {cipher:"Mljvdz",plain:"Jigsaw"},
+  {cipher:"Nhbvwrqh",plain:"Keystone"},
+  {cipher:"Odebulqwk",plain:"Labyrinth"},
+  {cipher:"Pludjh",plain:"Mirage"},
+  {cipher:"Qryd",plain:"Nova"},
+  {cipher:"Sdudgra",plain:"Paradox"},
+  {cipher:"Txlyhu",plain:"Quiver"},
+  {cipher:"Ulssoh",plain:"Ripple"},
+  {cipher:"Vxpplw",plain:"Summit"},
+  {cipher:"Wrutxh",plain:"Torque"},
+  {cipher:"Yruwhb",plain:"Vortex"},
+  {cipher:"Zdqghu",plain:"Wander"},
+  {cipher:"Ahqrq",plain:"Xenon"},
+  {cipher:"Blhog",plain:"Yield"},
+  {cipher:"Chskbu",plain:"Zephyr"},
+  {cipher:"Doorb",plain:"Alloy"},
+  {cipher:"Ehdfrq",plain:"Beacon"},
+  {cipher:"Frpsdvv",plain:"Compass"}
+];
+
+const SENTENCES = [
+  {cipher:"Brx duh fruuhfw",plain:"You are correct"},
+  {cipher:"Jr wr qhaw urxqg",plain:"Go to next round"},
+  {cipher:"Qhaw ohyho xqorfnhg",plain:"Next level unlocked"},
+  {cipher:"Ohyho frpsohwhg vxffhvvixoob",plain:"Level completed successfully"},
+  {cipher:"Wub djdlq qrz",plain:"Try again now"},
+  {cipher:"Zurqj dqvzhu ghwhfwhg",plain:"Wrong answer detected"},
+  {cipher:"Dffhvv judqwhg qrz",plain:"Access granted now"},
+  {cipher:"Dffhvv ghqlhg djdlq",plain:"Access denied again"},
+  {cipher:"Plvvlrq frpsohwhg vxffhvvixoob",plain:"Mission completed successfully"},
+  {cipher:"Plvvlrq idlohg djdlq",plain:"Mission failed again"},
+  {cipher:"Fruuhfw dqvzhu uhfhlyhg",plain:"Correct answer received"},
+  {cipher:"Pryh wr qhaw ohyho",plain:"Move to next level"},
+  {cipher:"Surfhhg wr urxqg wzr",plain:"Proceed to round two"},
+  {cipher:"Urxqg rqh frpsohwhg",plain:"Round one completed"},
+  {cipher:"Ilqdo ohyho xqorfnhg",plain:"Final level unlocked"},
+  {cipher:"Jdph ryhu qrz",plain:"Game over now"},
+  {cipher:"Uhvwduw wkh jdph",plain:"Restart the game"},
+  {cipher:"Frqwlqxh wr qhaw vwdjh",plain:"Continue to next stage"},
+  {cipher:"Vwdjh fohduhg vxffhvvixoob",plain:"Stage cleared successfully"},
+  {cipher:"Sodbhu rqh zlqv",plain:"Player one wins"},
+  {cipher:"Sodbhu wzr orvhv",plain:"Player two loses"},
+  {cipher:"Wlph lv xs",plain:"Time is up"},
+  {cipher:"Erqxv urxqg xqorfnhg",plain:"Bonus round unlocked"},
+  {cipher:"Fkdoohqjh dffhswhg qrz",plain:"Challenge accepted now"},
+  {cipher:"Sxccoh vroyhg fruuhfwob",plain:"Puzzle solved correctly"},
+  {cipher:"Frgh yhulilhg vxffhvvixoob",plain:"Code verified successfully"},
+  {cipher:"Frgh ydolgdwlrq idlohg",plain:"Code validation failed"},
+  {cipher:"Wub qhaw txhvwlrq",plain:"Try next question"},
+  {cipher:"Vxeplw brxu dqvzhu",plain:"Submit your answer"},
+  {cipher:"Dqvzhu lv fruuhfw",plain:"Answer is correct"},
+  {cipher:"Dqvzhu lv zurqj",plain:"Answer is wrong"},
+  {cipher:"Fkhfn brxu uhvsrqvh",plain:"Check your response"},
+  {cipher:"Pryh wr qhaw vwdjh",plain:"Move to next stage"},
+  {cipher:"Xqorfn wkh erqxv",plain:"Unlock the bonus"},
+  {cipher:"Brx sdvvhg whvw",plain:"You passed test"},
+  {cipher:"Brx idlohg whvw",plain:"You failed test"},
+  {cipher:"Dwwhpsw vxffhvvixo qrz",plain:"Attempt successful now"},
+  {cipher:"Dwwhpsw idlohg djdlq",plain:"Attempt failed again"},
+  {cipher:"Vbvwhp uhdgb qrz",plain:"System ready now"},
+  {cipher:"Vbvwhp huuru rffxuuhg",plain:"System error occurred"},
+  {cipher:"Ordglqj qhaw ohyho",plain:"Loading next level"},
+  {cipher:"Qhaw fkdoohqjh ehjlqv",plain:"Next challenge begins"},
+  {cipher:"Ylfwrub dfklhyhg wrgdb",plain:"Victory achieved today"},
+  {cipher:"Ehwwhu oxfn qhaw wlph",plain:"Better luck next time"},
+  {cipher:"Srlqwv dgghg vxffhvvixoob",plain:"Points added successfully"},
+  {cipher:"Vfruh xsgdwhg qrz",plain:"Score updated now"},
+  {cipher:"Ohyho xs dfklhyhg",plain:"Level up achieved"},
+  {cipher:"Urxqg frpsohwhg vxffhvvixoob",plain:"Round completed successfully"},
+  {cipher:"Frqwlqxh wkh plvvlrq",plain:"Continue the mission"},
+  {cipher:"Plvvlrq dffrpsolvkhg vxffhvvixoob",plain:"Mission accomplished successfully"},
+  {cipher:"Ilqg wkh frgh",plain:"Find the code"},
+  {cipher:"Frgh lv klgghq",plain:"Code is hidden"},
+  {cipher:"Vhfuhw frgh irxqg",plain:"Secret code found"},
+  {cipher:"Kdfnhu irxqg frgh",plain:"Hacker found code"},
+  {cipher:"Frgh zdv kdfnhg",plain:"Code was hacked"},
+  {cipher:"Vhuyhu zdv kdfnhg",plain:"Server was hacked"},
+  {cipher:"Ilqg vhfuhw nhb",plain:"Find secret key"},
+  {cipher:"Euhdn wkh frgh",plain:"Break the code"},
+  {cipher:"Fudfn wkh sdvvzrug",plain:"Crack the password"},
+  {cipher:"Vbvwhp jrw kdfnhg",plain:"System got hacked"},
+  {cipher:"Gdwd zdv vwrohq",plain:"Data was stolen"},
+  {cipher:"Xqorfn wkh ydxow",plain:"Unlock the vault"},
+  {cipher:"Wudfh wkh kdfnhu",plain:"Trace the hacker"},
+  {cipher:"Surwhfw wkh vhuyhu",plain:"Protect the server"},
+  {cipher:"Klgh wkh phvvdjh",plain:"Hide the message"},
+  {cipher:"Ghfrgh wkh vljqdo",plain:"Decode the signal"},
+  {cipher:"Hqfubsw wkh gdwd",plain:"Encrypt the data"},
+  {cipher:"Vhfxuh wkh vbvwhp",plain:"Secure the system"},
+  {cipher:"Orfn wkh iloh",plain:"Lock the file"},
+  {cipher:"Dffhvv ghqlhg qrz",plain:"Access denied now"},
+  {cipher:"Ilqg klgghq sdwk",plain:"Find hidden path"},
+  {cipher:"Vhfuhw nhb plvvlqj",plain:"Secret key missing"},
+  {cipher:"Kdfnhu lqvlgh vbvwhp",plain:"Hacker inside system"},
+  {cipher:"Iluhzdoo eorfnv kdfnhu",plain:"Firewall blocks hacker"},
+  {cipher:"Wudfn wkh euhdfk",plain:"Track the breach"},
+  {cipher:"Vwrs wkh dwwdfn",plain:"Stop the attack"},
+  {cipher:"Dohuw wkh dgplq",plain:"Alert the admin"},
+  {cipher:"Vhuyhu xqghu dwwdfn",plain:"Server under attack"},
+  {cipher:"Vfdq iru yluxv",plain:"Scan for virus"},
+  {cipher:"Yluxv lqihfwhg vbvwhp",plain:"Virus infected system"},
+  {cipher:"Frgh fudfnhg vxffhvvixoob",plain:"Code cracked successfully"},
+  {cipher:"Sdvvzrug zdv zhdn",plain:"Password was weak"},
+  {cipher:"Uhvhw wkh sdvvzrug",plain:"Reset the password"},
+  {cipher:"Edfnxs wkh gdwd",plain:"Backup the data"},
+  {cipher:"Prqlwru qhwzrun dfwlylwb",plain:"Monitor network activity"},
+  {cipher:"Vxvslflrxv orjlq ghwhfwhg",plain:"Suspicious login detected"},
+  {cipher:"Dgplq ilahg euhdfk",plain:"Admin fixed breach"},
+  {cipher:"Vhfxulwb ohyho kljk",plain:"Security level high"},
+  {cipher:"Fkhfn vbvwhp orjv",plain:"Check system logs"},
+  {cipher:"Wudfh LS dgguhvv",plain:"Trace IP address"},
+  {cipher:"Xqnqrzq xvhu ghwhfwhg",plain:"Unknown user detected"},
+  {cipher:"Surwhfw brxu sdvvzrug",plain:"Protect your password"},
+  {cipher:"Kdfn dwwhpsw idlohg",plain:"Hack attempt failed"},
+  {cipher:"Gdwd ohdn irxqg",plain:"Data leak found"},
+  {cipher:"Qhwzrun xqghu wkuhdw",plain:"Network under threat"},
+  {cipher:"Nhb zdv vwrohq",plain:"Key was stolen"},
+  {cipher:"Phvvdjh zdv hqfubswhg",plain:"Message was encrypted"},
+  {cipher:"Ghfubsw wkh phvvdjh",plain:"Decrypt the message"},
+  {cipher:"Ilqg dffhvv srlqw",plain:"Find access point"},
+  {cipher:"Frgh lv vhfxuh",plain:"Code is secure"}
+];
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  mode: 'words',      // 'words' | 'sentences' | 'all'
+  score: 0,
+  streak: 0,
+  bestStreak: 0,
+  solved: 0,
+  total: 0,
+  currentQ: null,
+  pool: [],
+  usedIndices: new Set(),
+  hintsUsed: 0,
+  revealed: false
+};
+
+// ═══════════════════════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const cipherDisplay  = $('cipherDisplay');
+const answerInput    = $('answerInput');
+const feedback       = $('feedback');
+const scoreVal       = $('scoreVal');
+const streakVal      = $('streakVal');
+const solvedVal      = $('solvedVal');
+const questionId     = $('questionId');
+const hintText       = $('hintText');
+const streakBadge    = $('streakBadge');
+const streakBadgeNum = $('streakBadgeNum');
+const bestStreakVal  = $('bestStreakVal');
+const diffLabel      = $('diffLabel');
+const dd1=$('dd1'), dd2=$('dd2'), dd3=$('dd3');
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getPool() {
+  if (state.mode === 'words') return WORDS.map((w,i) => ({...w, id: i, type:'word'}));
+  if (state.mode === 'sentences') return SENTENCES.map((s,i) => ({...s, id: i+1000, type:'sentence'}));
+  return [
+    ...WORDS.map((w,i) => ({...w, id: i, type:'word'})),
+    ...SENTENCES.map((s,i) => ({...s, id: i+1000, type:'sentence'}))
+  ];
+}
+
+// ═══════════════════════════════════════════════════════
+//  CIPHER TEXT ANIMATION
+// ═══════════════════════════════════════════════════════
+function animateCipherText(text) {
+  cipherDisplay.innerHTML = '';
+  [...text].forEach((ch, i) => {
+    const span = document.createElement('span');
+    span.className = 'char';
+    span.textContent = ch === ' ' ? '\u00A0' : ch;
+    span.style.animationDelay = `${i * 0.03}s`;
+    cipherDisplay.appendChild(span);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  WAVE ANIMATION REFRESH
+// ═══════════════════════════════════════════════════════
+function refreshWave() {
+  const wp = $('wavePath');
+  if (!wp) return;
+  // Generate random wave
+  let d = 'M0,15';
+  for (let x = 50; x <= 800; x += 50) {
+    const y = 15 + (Math.random() - 0.5) * 28;
+    d += ` Q${x-25},${Math.random()*30} ${x},${y}`;
+  }
+  wp.setAttribute('d', d);
+  wp.style.animation = 'none';
+  wp.offsetHeight;
+  wp.style.animation = '';
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOAD QUESTION
+// ═══════════════════════════════════════════════════════
+function loadQuestion() {
+  state.pool = getPool();
+  state.total = state.pool.length;
+  state.revealed = false;
+  state.hintsUsed = 0;
+
+  // Pick unused random question
+  if (state.usedIndices.size >= state.pool.length) {
+    state.usedIndices.clear(); // Reset when all used
+  }
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * state.pool.length);
+  } while (state.usedIndices.has(state.pool[idx].id) && state.usedIndices.size < state.pool.length);
+  state.usedIndices.add(state.pool[idx].id);
+  state.currentQ = state.pool[idx];
+
+  // Update UI
+  animateCipherText(state.currentQ.cipher);
+  refreshWave();
+  questionId.textContent = `#${String(state.solved + 1).padStart(3,'0')}`;
+  answerInput.value = '';
+  answerInput.className = 'text-input';
+  answerInput.focus();
+  feedback.className = 'feedback';
+  feedback.textContent = '';
+  hintText.textContent = 'Press HINT to reveal first letter';
+
+  // Difficulty dots
+  const isWord = state.currentQ.type === 'word';
+  const len = state.currentQ.plain.length;
+  dd1.className = 'diff-dot active';
+  dd2.className = 'diff-dot' + (len > 5 ? ' active amber' : '');
+  dd3.className = 'diff-dot' + (len > 15 ? ' active red' : '');
+  diffLabel.textContent = `Difficulty: ${isWord ? 'Word' : 'Sentence'} Mode — ${len} chars`;
+
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════════════
+//  VERIFY
+// ═══════════════════════════════════════════════════════
+function verify() {
+  if (!state.currentQ || state.revealed) return;
+  const userAns = answerInput.value.trim();
+  if (!userAns) {
+    showFeedback('⚠ Enter your decoded message first', 'error');
+    return;
+  }
+  const correct = userAns.toLowerCase() === state.currentQ.plain.toLowerCase();
+  if (correct) {
+    handleCorrect();
+  } else {
+    handleWrong();
+  }
+}
+
+function handleCorrect() {
+  // Points: base 10 + streak bonus
+  const streakBonus = state.streak * 2;
+  const points = 10 + streakBonus;
+  state.score += points;
+  state.streak++;
+  if (state.streak > state.bestStreak) state.bestStreak = state.streak;
+  state.solved++;
+
+  answerInput.classList.add('correct');
+  showFeedback(`✓ SIGNAL DECODED — +${points} pts (streak bonus:+${streakBonus})`, 'success');
+  updateStats();
+
+  // Animations!
+  triggerSuccessAnimation();
+  if (state.streak >= 3) triggerSignalBurst();
+  if (state.streak >= 5) triggerMatrixRain();
+
+  // Play a subtle sound
+  playTone(true);
+}
+
+function handleWrong() {
+  state.streak = 0;
+  answerInput.classList.add('wrong');
+  setTimeout(() => answerInput.classList.remove('wrong'), 600);
+  showFeedback('✗ DECRYPTION FAILED — Try again', 'error');
+  flashWrong();
+  updateStats();
+  playTone(false);
+}
+
+// ═══════════════════════════════════════════════════════
+//  HINT
+// ═══════════════════════════════════════════════════════
+function giveHint() {
+  if (!state.currentQ || state.revealed) return;
+  state.hintsUsed++;
+  const plain = state.currentQ.plain;
+  if (state.hintsUsed === 1) {
+    hintText.innerHTML = `First letter: <span>${plain[0].toUpperCase()}</span>`;
+  } else if (state.hintsUsed === 2) {
+    hintText.innerHTML = `Length: <span>${plain.length}</span> characters | Last letter: <span>${plain[plain.length-1].toUpperCase()}</span>`;
+  } else {
+    // Show partial
+    const partial = [...plain].map((c, i) => (i % 3 === 0 ? c : '_')).join('');
+    hintText.innerHTML = `Partial: <span>${partial}</span>`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  REVEAL
+// ═══════════════════════════════════════════════════════
+function revealAnswer() {
+  if (!state.currentQ) return;
+  state.revealed = true;
+  state.streak = 0;
+  answerInput.value = state.currentQ.plain;
+  answerInput.className = 'text-input';
+  showFeedback(`👁 Answer revealed: ${state.currentQ.plain}`, 'error');
+  updateStats();
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI UPDATES
+// ═══════════════════════════════════════════════════════
+function showFeedback(msg, type) {
+  feedback.textContent = msg;
+  feedback.className = `feedback show ${type}`;
+}
+
+function updateStats() {
+  scoreVal.textContent = state.score;
+  streakVal.textContent = state.streak;
+  solvedVal.textContent = `${state.solved}/${state.total}`;
+  bestStreakVal.textContent = state.bestStreak;
+  streakBadgeNum.textContent = state.streak;
+  streakBadge.className = state.streak >= 2 ? 'streak-badge show' : 'streak-badge';
+}
+
+function resetScore() {
+  state.score = 0;
+  state.streak = 0;
+  state.bestStreak = 0;
+  state.solved = 0;
+  state.usedIndices.clear();
+  updateStats();
+  showFeedback('⟲ All stats reset', 'error');
+  loadQuestion();
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANIMATIONS
+// ═══════════════════════════════════════════════════════
+
+// Particle burst
+function triggerSuccessAnimation() {
+  const overlay = $('successOverlay');
+  overlay.classList.add('active');
+  const colors = ['#00ff41','#00cc33','#ffb000','#00e5ff','#66ff66'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = '50%';
+    p.style.top = '50%';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    const angle = (Math.PI * 2 * i) / 40 + Math.random() * 0.5;
+    const dist = 80 + Math.random() * 250;
+    const dx = Math.cos(angle) * dist;
+    const dy = Math.sin(angle) * dist;
+    const dur = 600 + Math.random() * 400;
+    p.animate([
+      { transform: 'translate(-50%,-50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0)`, opacity: 0 }
+    ], { duration: dur, easing: 'cubic-bezier(0,0.5,0.5,1)' });
+    overlay.appendChild(p);
+    setTimeout(() => p.remove(), dur);
+  }
+  setTimeout(() => overlay.classList.remove('active'), 1200);
+}
+
+// Signal burst ring
+function triggerSignalBurst() {
+  const ring = $('signalBurst');
+  ring.classList.remove('active');
+  void ring.offsetHeight;
+  ring.classList.add('active');
+  setTimeout(() => ring.classList.remove('active'), 900);
+}
+
+// Matrix rain (brief)
+function triggerMatrixRain() {
+  const canvas = $('matrixCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.classList.add('active');
+
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*(){}[]|/<>~';
+  const fontSize = 14;
+  const cols = Math.floor(canvas.width / fontSize);
+  const drops = new Array(cols).fill(1);
+
+  let frames = 0;
+  const maxFrames = 60;
+
+  function drawMatrix() {
+    ctx.fillStyle = 'rgba(2,10,2,0.08)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = `${fontSize}px Share Tech Mono, monospace`;
+
+    for (let i = 0; i < drops.length; i++) {
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(ch, i * fontSize, drops[i] * fontSize);
+      if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+    frames++;
+    if (frames < maxFrames) requestAnimationFrame(drawMatrix);
+    else {
+      canvas.classList.remove('active');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+  drawMatrix();
+}
+
+// Wrong flash
+function flashWrong() {
+  const wf = $('wrongFlash');
+  wf.classList.add('active');
+  setTimeout(() => wf.classList.remove('active'), 200);
+}
+
+// Sound (Web Audio API)
+function playTone(success) {
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.type = 'sine';
+    gain.gain.value = 0.08;
+
+    if (success) {
+      osc.frequency.setValueAtTime(523, ac.currentTime);
+      osc.frequency.setValueAtTime(659, ac.currentTime + 0.1);
+      osc.frequency.setValueAtTime(784, ac.currentTime + 0.2);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.4);
+      osc.start(ac.currentTime);
+      osc.stop(ac.currentTime + 0.4);
+    } else {
+      osc.frequency.setValueAtTime(200, ac.currentTime);
+      osc.frequency.setValueAtTime(150, ac.currentTime + 0.15);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.3);
+      osc.start(ac.currentTime);
+      osc.stop(ac.currentTime + 0.3);
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
+//  CIRCUIT NODES BACKGROUND
+// ═══════════════════════════════════════════════════════
+function createCircuitNodes() {
+  const container = $('circuitNodes');
+  for (let i = 0; i < 30; i++) {
+    const node = document.createElement('div');
+    node.className = 'circuit-node';
+    node.style.left = Math.random() * 100 + '%';
+    node.style.top = Math.random() * 100 + '%';
+    node.style.animationDelay = Math.random() * 8 + 's';
+    node.style.animationDuration = (5 + Math.random() * 6) + 's';
+    container.appendChild(node);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  EVENT LISTENERS
+// ═══════════════════════════════════════════════════════
+$('verifyBtn').addEventListener('click', verify);
+$('nextBtn').addEventListener('click', loadQuestion);
+$('hintBtn').addEventListener('click', giveHint);
+$('skipBtn').addEventListener('click', () => { state.streak = 0; updateStats(); loadQuestion(); });
+$('revealBtn').addEventListener('click', revealAnswer);
+$('resetBtn').addEventListener('click', resetScore);
+
+// Enter key to verify
+answerInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') verify();
+});
+
+// Mode toggles
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.mode = btn.dataset.mode;
+    state.usedIndices.clear();
+    state.solved = 0;
+    loadQuestion();
+  });
+});
+
+// Reference table toggle
+$('refToggleBtn').addEventListener('click', () => {
+  const wrap = $('refTableWrap');
+  const isOpen = wrap.classList.contains('open');
+  wrap.classList.toggle('open');
+  $('refToggleBtn').textContent = isOpen
+    ? '▾ Caesar Cipher Reference Table (K=3)'
+    : '▴ Caesar Cipher Reference Table (K=3)';
+});
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+createCircuitNodes();
+loadQuestion();
+
+// Resize handler for matrix canvas
+window.addEventListener('resize', () => {
+  const c = $('matrixCanvas');
+  c.width = window.innerWidth;
+  c.height = window.innerHeight;
+});
+</script>
+</body>
+</html>
